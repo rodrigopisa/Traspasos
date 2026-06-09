@@ -1,1 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traspasos — Consulta de Productos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0f1117;--surface:#181c27;--card:#1e2333;--border:#2a3045;
+    --accent:#3ddc97;--accent2:#5b8dee;--danger:#ff6b6b;
+    --text:#e8eaf0;--muted:#8890a4;--tag-bg:#1a2540;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:18px 32px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+  .logo-mark{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .logo-mark svg{fill:#0f1117}
+  header h1{font-size:16px;font-weight:600;letter-spacing:.02em}
+  #db-badge{font-size:11px;background:#1a2540;border:1px solid var(--border);color:var(--accent2);padding:3px 10px;border-radius:20px;font-family:'JetBrains Mono',monospace;margin-left:auto}
+  .shell{max-width:1100px;margin:0 auto;padding:32px 24px}
+  .search-wrap{position:relative;margin-bottom:12px}
+  .search-wrap svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+  #search{width:100%;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:16px 20px 16px 52px;font-size:17px;font-family:'Inter',sans-serif;color:var(--text);outline:none;transition:border-color .2s}
+  #search:focus{border-color:var(--accent)}
+  #search::placeholder{color:var(--muted)}
+  #suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:10px;max-height:280px;overflow-y:auto;z-index:200;display:none;scrollbar-width:thin}
+  .sug-item{padding:11px 18px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);transition:background .15s}
+  .sug-item:last-child{border-bottom:none}
+  .sug-item:hover,.sug-item.active{background:var(--tag-bg)}
+  .sug-clave{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto;flex-shrink:0}
+  .sug-match{color:var(--accent);font-weight:600}
+  .filters{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;align-items:center}
+  .filter-label{font-size:12px;color:var(--muted);margin-right:4px}
+  .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+  .filter-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+  .filter-btn.on{background:var(--accent2);border-color:var(--accent2);color:#0f1117;font-weight:600}
+  .results-header{display:flex;align-items:baseline;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .results-header h2{font-size:20px;font-weight:700}
+  .clave-tag{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--tag-bg);border:1px solid var(--border);color:var(--accent2);padding:3px 10px;border-radius:6px}
+  .total-tag{font-size:13px;color:var(--muted);margin-left:auto}
+  .total-tag strong{color:var(--accent)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s}
+  .card:hover{border-color:var(--accent2);transform:translateY(-1px)}
+  .card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+  .card-suc{font-size:15px;font-weight:600;line-height:1.3}
+  .card-qty{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--accent);text-align:right;flex-shrink:0;margin-left:12px}
+  .card-qty span{display:block;font-size:10px;font-weight:400;color:var(--muted);text-align:right;margin-top:1px}
+  .div-chip{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;margin-bottom:10px}
+  .meses-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+  .mes-dot{font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--tag-bg);border:1px solid var(--border);color:var(--muted);padding:2px 7px;border-radius:4px}
+  .bar-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:12px}
+  .bar-fill{height:100%;border-radius:2px}
+  #placeholder{text-align:center;padding:80px 24px;color:var(--muted)}
+  #placeholder svg{opacity:.2;margin-bottom:20px}
+  #placeholder h3{font-size:18px;font-weight:500;margin-bottom:8px;color:var(--text);opacity:.5}
+  #placeholder p{font-size:14px;line-height:1.6;max-width:400px;margin:0 auto}
+  #loading{text-align:center;padding:80px 24px;color:var(--muted)}
+  #loading .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .update-bar{margin-top:48px;border-top:1px solid var(--border);padding-top:28px}
+  .update-bar h3{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+  .upload-zone{border:2px dashed var(--border);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+  .upload-zone:hover{border-color:var(--accent2);background:#1a2540}
+  .upload-zone.drag{border-color:var(--accent);background:rgba(61,220,151,.05)}
+  .upload-zone p{font-size:14px;color:var(--muted);margin-bottom:8px}
+  .upload-zone small{font-size:12px;color:var(--muted);opacity:.6}
+  #file-input{display:none}
+  #process-btn{display:none;margin-top:14px;background:var(--accent);color:#0f1117;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+  #process-btn:hover{opacity:.85}
+  #upload-status{margin-top:10px;font-size:13px;color:var(--accent);display:none}
+  #upload-error{margin-top:10px;font-size:13px;color:var(--danger);display:none}
+  .div-CORPORATIVA{background:rgba(91,141,238,.15);color:#5b8dee}
+  .div-FERTILIZA{background:rgba(61,220,151,.12);color:#3ddc97}
+  .div-NOROESTE{background:rgba(255,199,0,.12);color:#ffc700}
+  .div-OCCIDENTE{background:rgba(255,107,107,.12);color:#ff6b6b}
+  .div-SEFERNO{background:rgba(200,107,255,.12);color:#c86bff}
+  .div-DNORESTE{background:rgba(255,159,67,.12);color:#ff9f43}
+  .div-DSURESTE{background:rgba(32,201,151,.12);color:#20c997}
+  .div-DMAYOREO{background:rgba(150,150,255,.12);color:#9696ff}
+  .bar-CORPORATIVA{background:#5b8dee}.bar-FERTILIZA{background:#3ddc97}
+  .bar-NOROESTE{background:#ffc700}.bar-OCCIDENTE{background:#ff6b6b}
+  .bar-SEFERNO{background:#c86bff}.bar-DNORESTE{background:#ff9f43}
+  .bar-DSURESTE{background:#20c997}.bar-DMAYOREO{background:#9696ff}
+  .card-CORPORATIVA::before{background:#5b8dee}.card-FERTILIZA::before{background:#3ddc97}
+  .card-NOROESTE::before{background:#ffc700}.card-OCCIDENTE::before{background:#ff6b6b}
+  .card-SEFERNO::before{background:#c86bff}.card-DNORESTE::before{background:#ff9f43}
+  .card-DSURESTE::before{background:#20c997}.card-DMAYOREO::before{background:#9696ff}
+  @media(max-width:640px){.shell{padding:16px}header{padding:14px 16px}.cards{grid-template-columns:1fr}.results-header{flex-direction:column;gap:6px}.total-tag{margin-left:0}}
+</style>
+</head>
+<body>
 
+<header>
+  <div class="logo-mark">
+    <svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 2L3 7v10h5v-6h4v6h5V7z"/></svg>
+  </div>
+  <div>
+    <h1>Consulta de Traspasos</h1>
+  </div>
+  <span id="db-badge">Cargando…</span>
+</header>
+
+<div class="shell">
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Cargando base de datos…</p>
+  </div>
+
+  <div id="app-content" style="display:none">
+    <div class="search-wrap">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="search" type="text" placeholder="Busca por nombre de producto o clave…" autocomplete="off" spellcheck="false">
+      <div id="suggestions"></div>
+    </div>
+
+    <div class="filters" id="div-filters">
+      <span class="filter-label">División:</span>
+    </div>
+
+    <div id="results-wrap" style="display:none">
+      <div class="results-header">
+        <h2 id="result-name"></h2>
+        <span class="clave-tag" id="result-clave"></span>
+        <span class="total-tag" id="result-total"></span>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div id="placeholder">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <h3>Busca un producto</h3>
+      <p>Escribe el nombre o clave de cualquier agroquímico para ver en qué divisiones y sucursales tiene consumo histórico.</p>
+    </div>
+
+    <div class="update-bar">
+      <h3>🔄 Actualizar base de datos</h3>
+      <div class="upload-zone" id="drop-zone">
+        <p>Arrastra tu nuevo archivo Excel aquí, o haz clic para seleccionarlo</p>
+        <small>Columnas requeridas: Mes · Clave Producto · Producto · Cantidad · Sucursal · División</small>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+      </div>
+      <button id="process-btn">⚙️ Procesar y actualizar base</button>
+      <div id="upload-status"></div>
+      <div id="upload-error"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const MESES_MAP = {1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'};
+const DIV_KEY = d => d.replace(/\s+/g,'').replace('DIVISION','D').toUpperCase();
+
+let activeDivs = new Set();
+let currentProduct = null;
+let sugg_idx = -1;
+let allKeys = [];
+
+function initApp() {
+  allKeys = Object.keys(DB);
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+  buildFilters();
+  updateBadge();
+}
+
+function updateBadge() {
+  document.getElementById('db-badge').textContent = Object.keys(DB).length.toLocaleString('es') + ' productos';
+}
+
+function buildFilters() {
+  const filtersEl = document.getElementById('div-filters');
+  filtersEl.querySelectorAll('.filter-btn').forEach(b => b.remove());
+  const divSet = new Set();
+  for (const v of Object.values(DB)) for (const s of v.sucursales) divSet.add(s.division);
+  for (const div of [...divSet].sort()) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.textContent = div;
+    btn.dataset.div = div;
+    btn.onclick = () => {
+      if (activeDivs.has(div)) { activeDivs.delete(div); btn.classList.remove('on'); }
+      else { activeDivs.add(div); btn.classList.add('on'); }
+      if (currentProduct) showProduct(currentProduct);
+    };
+    filtersEl.appendChild(btn);
+  }
+}
+
+const searchEl = document.getElementById('search');
+const sugEl    = document.getElementById('suggestions');
+
+searchEl.addEventListener('input', () => {
+  const q = searchEl.value.trim().toUpperCase();
+  if (!q) { hideSug(); return; }
+  const matches = allKeys.filter(k => k.includes(q) || (DB[k].clave && DB[k].clave.includes(q))).slice(0,12);
+  if (!matches.length) { hideSug(); return; }
+  sugEl.innerHTML = '';
+  matches.forEach((m, i) => {
+    const d = document.createElement('div');
+    d.className = 'sug-item';
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g');
+    const hi = m.replace(re, s => `<span class="sug-match">${s}</span>`);
+    d.innerHTML = `<span>${hi}</span><span class="sug-clave">${DB[m].clave||''}</span>`;
+    d.addEventListener('mousedown', e => { e.preventDefault(); selectProduct(m); });
+    sugEl.appendChild(d);
+  });
+  sugEl.style.display = 'block';
+  sugg_idx = -1;
+});
+
+searchEl.addEventListener('keydown', e => {
+  const items = sugEl.querySelectorAll('.sug-item');
+  if (e.key==='ArrowDown') { sugg_idx=Math.min(sugg_idx+1,items.length-1); highlight(items); e.preventDefault(); }
+  else if (e.key==='ArrowUp') { sugg_idx=Math.max(sugg_idx-1,0); highlight(items); e.preventDefault(); }
+  else if (e.key==='Enter') {
+    if (sugg_idx>=0 && items[sugg_idx]) {
+      const q=searchEl.value.trim().toUpperCase();
+      selectProduct(allKeys.filter(k=>k.includes(q)||(DB[k].clave&&DB[k].clave.includes(q)))[sugg_idx]);
+    } else {
+      const q=searchEl.value.trim().toUpperCase();
+      const first=allKeys.find(k=>k.includes(q)||(DB[k].clave&&DB[k].clave.includes(q)));
+      if (first) selectProduct(first);
+    }
+  } else if (e.key==='Escape') hideSug();
+});
+
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) hideSug(); });
+function highlight(items) {
+  items.forEach((it,i) => it.classList.toggle('active',i===sugg_idx));
+  if (items[sugg_idx]) items[sugg_idx].scrollIntoView({block:'nearest'});
+}
+function hideSug() { sugEl.style.display='none'; sugg_idx=-1; }
+
+function selectProduct(name) {
+  searchEl.value = name;
+  hideSug();
+  currentProduct = name;
+  showProduct(name);
+}
+
+function showProduct(name) {
+  const entry = DB[name];
+  if (!entry) return;
+  let rows = entry.sucursales;
+  if (activeDivs.size>0) rows = rows.filter(r => activeDivs.has(r.division));
+  const total = rows.reduce((s,r)=>s+r.cantidad,0);
+  const maxQ  = rows.length ? Math.max(...rows.map(r=>r.cantidad)) : 1;
+  document.getElementById('result-name').textContent  = name;
+  document.getElementById('result-clave').textContent = entry.clave ? 'Clave: '+entry.clave : '';
+  document.getElementById('result-total').innerHTML   = rows.length
+    ? `<strong>${rows.length}</strong> sucursal${rows.length!==1?'es':''} · <strong>${total.toLocaleString('es')}</strong> uds totales`
+    : 'Sin resultados para el filtro seleccionado';
+  const cardsEl = document.getElementById('cards');
+  cardsEl.innerHTML = '';
+  if (!rows.length) {
+    cardsEl.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:20px 0">No hay datos para las divisiones seleccionadas.</p>';
+  } else {
+    rows.forEach(r => {
+      const dk  = DIV_KEY(r.division);
+      const pct = Math.round((r.cantidad/maxQ)*100);
+      const card = document.createElement('div');
+      card.className = `card card-${dk}`;
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-suc">${r.sucursal}</div>
+          <div class="card-qty">${r.cantidad.toLocaleString('es')}<span>uds</span></div>
+        </div>
+        <span class="div-chip div-${dk}">${r.division}</span>
+        <div class="meses-row">${r.meses.map(m=>`<span class="mes-dot">${MESES_MAP[m]||m}</span>`).join('')}</div>
+        <div class="bar-wrap"><div class="bar-fill bar-${dk}" style="width:${pct}%"></div></div>`;
+      cardsEl.appendChild(card);
+    });
+  }
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('results-wrap').style.display = 'block';
+}
+
+// Upload
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const procBtn   = document.getElementById('process-btn');
+const upStatus  = document.getElementById('upload-status');
+const upError   = document.getElementById('upload-error');
+let pendingFile = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  pendingFile = file;
+  dropZone.querySelector('p').textContent = '📄 ' + file.name;
+  procBtn.style.display = 'inline-block';
+  upStatus.style.display = 'none';
+  upError.style.display  = 'none';
+}
+
+procBtn.addEventListener('click', () => {
+  if (!pendingFile) return;
+  procBtn.textContent = '⏳ Procesando…';
+  procBtn.disabled = true;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, {type:'binary'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      let hdr = -1;
+      for (let i=0; i<Math.min(rows.length,10); i++) {
+        if (rows[i] && rows[i].some(c => typeof c==='string' && c.toUpperCase().includes('PRODUCTO'))) { hdr=i; break; }
+      }
+      if (hdr<0) throw new Error('No se encontró fila de encabezados.');
+      const h = rows[hdr].map(c=>(c||'').toString().trim().toUpperCase());
+      const iMes=h.findIndex(c=>c==='MES'), iClav=h.findIndex(c=>c.includes('CLAVE'));
+      const iProd=h.findIndex(c=>c==='PRODUCTO'), iCant=h.findIndex(c=>c==='CANTIDAD');
+      const iSuc=h.findIndex(c=>c==='SUCURSAL'), iDiv=h.findIndex(c=>c.includes('DIVIS')||c==='DIVISIÓN'||c==='DIVISION');
+      if (iProd<0||iCant<0||iSuc<0||iDiv<0) throw new Error('Faltan columnas requeridas.');
+      const newDB = {};
+      for (let i=hdr+1; i<rows.length; i++) {
+        const r=rows[i];
+        if (!r||!r[iProd]||!r[iSuc]||!r[iDiv]) continue;
+        const prod=r[iProd].toString().trim().toUpperCase();
+        const suc=r[iSuc].toString().trim().toUpperCase();
+        const div=r[iDiv].toString().trim().toUpperCase();
+        const cant=parseFloat(r[iCant])||0;
+        const mes=r[iMes]?parseInt(r[iMes]):null;
+        const clav=iClav>=0?(r[iClav]||'').toString().trim():'';
+        if (!newDB[prod]) newDB[prod]={clave:clav,sucursales:{}};
+        if (!newDB[prod].clave&&clav) newDB[prod].clave=clav;
+        const key=suc+'|'+div;
+        if (!newDB[prod].sucursales[key]) newDB[prod].sucursales[key]={sucursal:suc,division:div,cantidad:0,meses:new Set()};
+        newDB[prod].sucursales[key].cantidad+=cant;
+        if (mes) newDB[prod].sucursales[key].meses.add(mes);
+      }
+      const flat={};
+      for (const [prod,d] of Object.entries(newDB)) {
+        flat[prod]={clave:d.clave,sucursales:Object.values(d.sucursales).map(s=>({...s,meses:[...s.meses].sort((a,b)=>a-b)})).sort((a,b)=>b.cantidad-a.cantidad)};
+      }
+      DB=flat; allKeys=Object.keys(DB);
+      buildFilters(); updateBadge();
+      currentProduct=null;
+      document.getElementById('results-wrap').style.display='none';
+      document.getElementById('placeholder').style.display='block';
+      searchEl.value='';
+      upStatus.textContent='✅ Base actualizada con '+allKeys.length.toLocaleString('es')+' productos.';
+      upStatus.style.display='block';
+      upError.style.display='none';
+    } catch(err) {
+      upError.textContent='❌ '+err.message;
+      upError.style.display='block';
+      upStatus.style.display='none';
+    }
+    procBtn.textContent='⚙️ Procesar y actualizar base';
+    procBtn.disabled=false;
+  };
+  reader.readAsBinaryString(pendingFile);
+});
+
+// Load data.js
+const s = document.createElement('script');
+s.src = 'data.js';
+s.onload = initApp;
+s.onerror = () => {
+  document.getElementById('loading').innerHTML = '<p style="color:var(--danger)">❌ No se pudo cargar la base de datos. Verifica que el archivo data.js esté en el mismo repositorio.</p>';
+};
+document.head.appendChild(s);
+</script>
+</body>
+</html>
